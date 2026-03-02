@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ATS Resume Builder V2 | Dynamic Engine</title>
+    <title>ATS Resume Builder V3 | Auto-Save Engine</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
@@ -13,7 +13,7 @@
         
         .header { text-align: center; margin-bottom: 20px; }
         .header h1 { margin: 0; color: #222; }
-        .header p { margin: 5px 0 0 0; color: #666; font-size: 14px; }
+        .header p { margin: 5px 0 0 0; color: #666; font-size: 14px; font-weight: bold; }
 
         .container { display: flex; gap: 20px; max-width: 1300px; margin: 0 auto; flex-wrap: wrap; }
         
@@ -57,8 +57,8 @@
 <body>
 
     <div class="header">
-        <h1>📄 ATS Resume Builder V2</h1>
-        <p>Dynamic Arrays • 100% Offline • No Watermarks</p>
+        <h1>📄 ATS Resume Builder V3</h1>
+        <p style="color: #28a745;">💾 Auto-Saving Enabled • 100% Offline • Dynamic Arrays</p>
     </div>
 
     <div class="container">
@@ -92,6 +92,7 @@
             </div>
 
             <button class="btn-download" onclick="downloadPDF()">📥 Download ATS PDF</button>
+            <p style="text-align: center; font-size: 11px; margin-top: 15px; color: #777;">Developed by Reyz</p>
         </div>
 
         <div class="preview-panel">
@@ -125,84 +126,119 @@
         let eduCount = 0;
         let projCount = 0;
 
-        function addEduBlock() {
+        function addEduBlock(data = {}) {
             eduCount++;
             const div = document.createElement('div');
             div.className = 'input-group edu-block';
             div.id = `edu-${eduCount}`;
             div.innerHTML = `
                 ${eduCount > 1 ? `<button class="btn-remove" onclick="this.parentElement.remove(); updateCV();">X</button>` : ''}
-                <input type="text" class="e-deg" placeholder="Degree (e.g. B.Tech IT)" onkeyup="updateCV()">
-                <input type="text" class="e-col" placeholder="College / School" onkeyup="updateCV()">
+                <input type="text" class="e-deg" placeholder="Degree (e.g. B.Tech IT)" value="${data.deg || ''}" onkeyup="updateCV()">
+                <input type="text" class="e-col" placeholder="College / School" value="${data.col || ''}" onkeyup="updateCV()">
                 <div style="display: flex; gap: 10px;">
-                    <input type="text" class="e-year" placeholder="Year (2023-2027)" style="flex:1;" onkeyup="updateCV()">
-                    <input type="text" class="e-score" placeholder="Score (CGPA/%)" style="flex:1;" onkeyup="updateCV()">
+                    <input type="text" class="e-year" placeholder="Year (2023-2027)" value="${data.year || ''}" style="flex:1;" onkeyup="updateCV()">
+                    <input type="text" class="e-score" placeholder="Score (CGPA/%)" value="${data.score || ''}" style="flex:1;" onkeyup="updateCV()">
                 </div>
             `;
             document.getElementById('eduWrapper').appendChild(div);
-            updateCV();
+            if(Object.keys(data).length === 0) updateCV(); // Only update if it's a new empty block
         }
 
-        function addProjBlock() {
+        function addProjBlock(data = {}) {
             projCount++;
             const div = document.createElement('div');
             div.className = 'input-group proj-block';
             div.id = `proj-${projCount}`;
             div.innerHTML = `
                 ${projCount > 1 ? `<button class="btn-remove" onclick="this.parentElement.remove(); updateCV();">X</button>` : ''}
-                <input type="text" class="p-name" placeholder="Project Name" onkeyup="updateCV()">
-                <textarea class="p-desc" placeholder="Project Description & Tech Stack used..." onkeyup="updateCV()"></textarea>
+                <input type="text" class="p-name" placeholder="Project Name" value="${data.name || ''}" onkeyup="updateCV()">
+                <textarea class="p-desc" placeholder="Project Description & Tech Stack used..." onkeyup="updateCV()">${data.desc || ''}</textarea>
             `;
             document.getElementById('projWrapper').appendChild(div);
-            updateCV();
+            if(Object.keys(data).length === 0) updateCV(); // Only update if it's a new empty block
         }
 
-        // --- THE MASTER LIVE UPDATE ENGINE ---
+        // --- THE MASTER LIVE UPDATE & AUTO-SAVE ENGINE ---
         function updateCV() {
-            // 1. Update Basic Fields
+            const resumeData = { education: [], projects: [] }; 
+
+            // 1. Update Basic Fields & Save to JSON
             const fields = ['Name', 'Email', 'Phone', 'Link', 'Summary', 'Skills'];
             fields.forEach(field => {
                 const val = document.getElementById('inp' + field).value;
                 document.getElementById('cv' + field).innerText = val || document.getElementById('inp' + field).getAttribute('placeholder');
+                resumeData[field] = val; 
             });
 
-            // 2. Rebuild Education List
+            // 2. Rebuild Education List & Save to JSON
             const eduList = document.getElementById('cvEduList');
-            eduList.innerHTML = ''; // Clear old preview
+            eduList.innerHTML = ''; 
             document.querySelectorAll('.edu-block').forEach(block => {
-                const deg = block.querySelector('.e-deg').value || 'Degree Name';
-                const col = block.querySelector('.e-col').value || 'College Name';
-                const year = block.querySelector('.e-year').value || 'Year';
-                const score = block.querySelector('.e-score').value || 'Score';
+                const deg = block.querySelector('.e-deg').value, col = block.querySelector('.e-col').value;
+                const year = block.querySelector('.e-year').value, score = block.querySelector('.e-score').value;
+                
+                resumeData.education.push({ deg, col, year, score }); 
                 
                 eduList.innerHTML += `
                     <div class="cv-item">
-                        <p class="cv-item-title">${deg}</p>
-                        <div class="cv-item-subtitle"><span>${col}</span><span>${year} | ${score}</span></div>
-                    </div>
-                `;
+                        <p class="cv-item-title">${deg || 'Degree Name'}</p>
+                        <div class="cv-item-subtitle"><span>${col || 'College Name'}</span><span>${year || 'Year'} | ${score || 'Score'}</span></div>
+                    </div>`;
             });
 
-            // 3. Rebuild Projects List
+            // 3. Rebuild Projects List & Save to JSON
             const projList = document.getElementById('cvProjList');
-            projList.innerHTML = ''; // Clear old preview
+            projList.innerHTML = ''; 
             document.querySelectorAll('.proj-block').forEach(block => {
-                const name = block.querySelector('.p-name').value || 'Project Name';
-                const desc = block.querySelector('.p-desc').value || 'Project details...';
+                const name = block.querySelector('.p-name').value, desc = block.querySelector('.p-desc').value;
+                
+                resumeData.projects.push({ name, desc }); 
                 
                 projList.innerHTML += `
                     <div class="cv-item">
-                        <p class="cv-item-title">${name}</p>
-                        <p class="cv-text">${desc}</p>
-                    </div>
-                `;
+                        <p class="cv-item-title">${name || 'Project Name'}</p>
+                        <p class="cv-text">${desc || 'Project details...'}</p>
+                    </div>`;
             });
+
+            // 🚀 THE MAGIC: Save to Browser Memory
+            localStorage.setItem('atsResumeData', JSON.stringify(resumeData));
         }
 
-        // Initialize with one empty block each
+        // --- ON PAGE LOAD: Data Recovery Engine ---
         window.onload = () => {
-            addEduBlock();
-            addProjBlock();
+            const savedData = localStorage.getItem('atsResumeData');
+            
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                
+                // Populate basic fields
+                const fields = ['Name', 'Email', 'Phone', 'Link', 'Summary', 'Skills'];
+                fields.forEach(field => { 
+                    if(data[field]) document.getElementById('inp' + field).value = data[field]; 
+                });
+                
+                // Populate Education blocks
+                if (data.education && data.education.length > 0) {
+                    data.education.forEach(edu => addEduBlock(edu));
+                } else {
+                    addEduBlock();
+                }
+                
+                // Populate Project blocks
+                if (data.projects && data.projects.length > 0) {
+                    data.projects.forEach(proj => addProjBlock(proj));
+                } else {
+                    addProjBlock();
+                }
+                
+                updateCV(); // Refresh the right-side preview
+            } else {
+                // First-time visitor
+                addEduBlock(); 
+                addProjBlock(); 
+                updateCV();
+            }
         };
 
         // --- PDF GENERATOR ---
@@ -212,17 +248,17 @@
             const fileName = userName.replace(/\s+/g, '_') + '_ATS_Resume.pdf';
             const btn = document.querySelector('.btn-download');
             
-            btn.innerHTML = "⏳ Generating PDF...";
+            btn.innerHTML = "⏳ Generating PDF..."; 
             btn.disabled = true;
 
             html2pdf().set({
-                margin: 0,
-                filename: fileName,
+                margin: 0, 
+                filename: fileName, 
                 image: { type: 'jpeg', quality: 1.0 },
-                html2canvas: { scale: 2, useCORS: true },
+                html2canvas: { scale: 2, useCORS: true }, 
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             }).from(element).save().then(() => {
-                btn.innerHTML = "📥 Download ATS PDF";
+                btn.innerHTML = "📥 Download ATS PDF"; 
                 btn.disabled = false;
             });
         }
